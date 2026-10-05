@@ -200,7 +200,13 @@ function classeSuperacao(observado, metaAnual, tipo) {
   return "Sem informação";
 }
 
-function graficoSuperadas(ids) {
+const SITUACOES_ANO = [
+  { nome: "Já superada", cor: "#38bdf8" },
+  { nome: "Ainda não", cor: "#475569" },
+  { nome: "Sem informação", cor: "#9aa3b2" },
+];
+
+function resumoSuperadas(ids) {
   const ano = painel.ano_vigente;
   const porMeta = new Map(painel.metas.map((meta) => [meta.id, meta]));
   const contagem = new Map();
@@ -211,7 +217,9 @@ function graficoSuperadas(ids) {
       .filter((linha) => linha.id === id && linha.ano === ano && linha.observado != null)
       .sort((a, b) => b.quadrimestre - a.quadrimestre);
     const secretaria = meta.secretaria || "Sem secretaria";
-    if (!contagem.has(secretaria)) contagem.set(secretaria, { "Já superada": 0, "Ainda não": 0, "Sem informação": 0 });
+    if (!contagem.has(secretaria)) {
+      contagem.set(secretaria, { "Já superada": 0, "Ainda não": 0, "Sem informação": 0 });
+    }
     const situacao = classeSuperacao(
       leituras.length ? leituras[0].observado : null,
       meta.metas_anuais[String(ano)],
@@ -219,18 +227,66 @@ function graficoSuperadas(ids) {
     );
     contagem.get(secretaria)[situacao] += 1;
   });
-  const secretarias = [...contagem.keys()].sort();
+  return { ano, contagem };
+}
+
+function totaisSuperadas(contagem) {
+  const totais = { "Já superada": 0, "Ainda não": 0, "Sem informação": 0 };
+  contagem.forEach((item) => {
+    SITUACOES_ANO.forEach((situacao) => {
+      totais[situacao.nome] += item[situacao.nome];
+    });
+  });
+  return totais;
+}
+
+function desenharKpisSuperadas(resumo) {
+  const totais = totaisSuperadas(resumo.contagem);
+  const total = SITUACOES_ANO.reduce((soma, situacao) => soma + totais[situacao.nome], 0);
+  document.getElementById("titulo-superadas").textContent = `Metas já superadas em ${resumo.ano}`;
+  document.getElementById("kpis-superadas").innerHTML = SITUACOES_ANO.map((situacao) => `
+    <div class="kpi-card">
+      <div class="kpi-label">${situacao.nome}</div>
+      <div class="kpi-valor-linha">
+        <span class="kpi-value" style="color:${situacao.cor}">${totais[situacao.nome]}</span>
+        <span class="kpi-pct">${fmtPct(totais[situacao.nome], total)}</span>
+      </div>
+    </div>`).join("");
+}
+
+function graficoRoscaSuperadas(resumo) {
+  const totais = totaisSuperadas(resumo.contagem);
+  const labels = [];
+  const values = [];
+  const colors = [];
+  SITUACOES_ANO.forEach((situacao) => {
+    if (!totais[situacao.nome]) return;
+    labels.push(situacao.nome);
+    values.push(totais[situacao.nome]);
+    colors.push(situacao.cor);
+  });
+  if (!values.length) return figuraVazia("Sem metas neste recorte");
+  const layout = layoutBase();
+  layout.title = { text: `Metas já superadas em ${resumo.ano}`, font: { size: 14 } };
+  layout.showlegend = true;
+  return {
+    data: [{ type: "pie", labels, values, hole: 0.62, marker: { colors }, sort: false }],
+    layout,
+  };
+}
+
+function graficoSuperadas(resumo) {
+  const secretarias = [...resumo.contagem.keys()].sort();
   if (!secretarias.length) return figuraVazia("Sem metas neste recorte");
-  const cores = { "Já superada": "#38bdf8", "Ainda não": "#475569", "Sem informação": "#9aa3b2" };
-  const data = ["Já superada", "Ainda não", "Sem informação"].flatMap((situacao) => {
-    const alturas = secretarias.map((secretaria) => contagem.get(secretaria)[situacao]);
+  const data = SITUACOES_ANO.flatMap((situacao) => {
+    const alturas = secretarias.map((secretaria) => resumo.contagem.get(secretaria)[situacao.nome]);
     if (!alturas.some((altura) => altura)) return [];
     return [{
       type: "bar",
-      name: situacao,
+      name: situacao.nome,
       x: secretarias,
       y: alturas,
-      marker: { color: cores[situacao] },
+      marker: { color: situacao.cor },
       hovertemplate: "%{x}<br>%{fullData.name}: %{y} metas<extra></extra>",
     }];
   });
@@ -239,7 +295,7 @@ function graficoSuperadas(ids) {
   layout.barmode = "stack";
   layout.xaxis.tickangle = -20;
   layout.margin = { l: 48, r: 16, t: 36, b: 72 };
-  layout.title = { text: `Metas já superadas em ${ano}`, font: { size: 14 } };
+  layout.title = { text: "Por secretaria executiva", font: { size: 14 } };
   return { data, layout };
 }
 
@@ -412,11 +468,14 @@ function render() {
   const recorte = aplicarStatus(resultadosDoOrgao(estado.ano, estado.quadrimestre));
   const ids = new Set(recorte.map((linha) => linha.id));
   const anoTodo = resultadosDoOrgao(estado.ano, null).filter((linha) => ids.has(linha.id));
+  const resumoAno = resumoSuperadas(ids);
+  desenharKpisSuperadas(resumoAno);
+  desenhar("grafico-rosca-superadas", graficoRoscaSuperadas(resumoAno));
+  desenhar("grafico-superadas", graficoSuperadas(resumoAno));
   desenharKpis(recorte);
   desenhar("grafico-rosca", graficoRosca(recorte));
   desenhar("grafico-posicoes", graficoPosicoes(anoTodo));
   desenhar("grafico-secretarias", graficoSecretarias(recorte));
-  desenhar("grafico-superadas", graficoSuperadas(ids));
   desenharTabela(linhasTabela(recorte));
   const meta = painel.metas.find((item) => item.id === estado.metaId) || null;
   const doAno = painel.resultados.filter((linha) => linha.id === estado.metaId && linha.ano === Number(estado.ano));
