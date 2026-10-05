@@ -347,6 +347,7 @@ function linhasTabela(recorte) {
         Código: meta.id,
         Meta: meta.descricao,
         Quadriênio: fmtNumero(meta.quadrienio),
+        Posição: linha.faixa,
         Projetado: fmtNumero(linha.projetado),
         Observado: fmtNumero(linha.observado),
         id: meta.id,
@@ -359,7 +360,7 @@ function linhasTabela(recorte) {
 }
 
 function desenharTabela(registros) {
-  const colunas = ["Código", "Meta", "Quadriênio", ...painel.anos.map(String), "Projetado", "Observado"];
+  const colunas = ["Código", "Meta", "Quadriênio", ...painel.anos.map(String), "Posição", "Projetado", "Observado"];
   const cabeca = document.getElementById("tabela-cabeca");
   cabeca.innerHTML = `<tr>${colunas.map((coluna) => `<th>${coluna}</th>`).join("")}</tr>`;
   const corpo = document.getElementById("tabela-corpo");
@@ -389,6 +390,10 @@ function desenharResumo(meta, linha) {
   destino.innerHTML = `
     <div class="resumo-meta">
       <p class="resumo-descricao">${textoHtml(meta.descricao || "—")}</p>
+      <div class="resumo-indicador">
+        <div class="resumo-rotulo">Indicador de aferição</div>
+        <div class="resumo-valor">${textoHtml(meta.indicador || "—")}</div>
+      </div>
       <div class="resumo-destaque">
         <div class="resumo-rotulo">Meta projetada de ${estado.ano}</div>
         <div class="resumo-meta-ano">${metaAno || "—"}</div>
@@ -401,7 +406,7 @@ function desenharResumo(meta, linha) {
         ${itemResumo("Meta do quadriênio", fmtNumero(meta.quadrienio))}
         ${itemResumo(`Projetado no ${estado.quadrimestre}º`, fmtNumero(linha && linha.projetado))}
         ${itemResumo(`Observado no ${estado.quadrimestre}º`, fmtNumero(linha && linha.observado))}
-        ${itemResumo(`Status no ${estado.quadrimestre}º`, linha && linha.status)}
+        ${itemResumo(`Posição no ${estado.quadrimestre}º`, linha && linha.faixa)}
       </div>
     </div>`;
 }
@@ -477,7 +482,8 @@ function render() {
   desenhar("grafico-posicoes", graficoPosicoes(anoTodo));
   desenhar("grafico-secretarias", graficoSecretarias(recorte));
   desenharTabela(linhasTabela(recorte));
-  const meta = painel.metas.find((item) => item.id === estado.metaId) || null;
+  document.getElementById("contagem-lista").textContent = `${recorte.length} metas neste recorte`;
+  const meta = ids.has(estado.metaId) ? painel.metas.find((item) => item.id === estado.metaId) || null : null;
   const doAno = painel.resultados.filter((linha) => linha.id === estado.metaId && linha.ano === Number(estado.ano));
   const doQuadrimestre = doAno.find((linha) => linha.quadrimestre === Number(estado.quadrimestre)) || null;
   desenharResumo(meta, doQuadrimestre);
