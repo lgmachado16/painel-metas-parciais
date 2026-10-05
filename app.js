@@ -31,6 +31,7 @@ function figuraVazia(texto) {
 }
 
 function desenhar(id, figura) {
+  if (typeof Plotly === "undefined" || !document.getElementById(id)) return;
   Plotly.react(id, figura.data, figura.layout, CONFIG_PLOT);
 }
 
@@ -436,42 +437,55 @@ function exportar() {
   XLSX.writeFile(livro, "metas-parciais.xlsx");
 }
 
+function aoMudar(id, acao) {
+  const elemento = document.getElementById(id);
+  if (elemento) elemento.addEventListener("change", acao);
+}
+
 function ligarEventos() {
-  document.getElementById("se").addEventListener("change", (evento) => {
+  aoMudar("se", (evento) => {
     estado.secretaria = evento.target.value;
     render();
   });
-  document.getElementById("area").addEventListener("change", (evento) => {
+  aoMudar("area", (evento) => {
     estado.area = evento.target.value;
     render();
   });
-  document.getElementById("ano").addEventListener("change", (evento) => {
+  aoMudar("ano", (evento) => {
     estado.ano = Number(evento.target.value);
     render();
   });
-  document.getElementById("quadrimestre").addEventListener("change", (evento) => {
+  aoMudar("quadrimestre", (evento) => {
     estado.quadrimestre = Number(evento.target.value);
     render();
   });
-  document.getElementById("status").addEventListener("change", (evento) => {
+  aoMudar("status", (evento) => {
     estado.status = evento.target.value;
     render();
   });
-  document.getElementById("meta-sel").addEventListener("change", (evento) => {
+  aoMudar("meta-sel", (evento) => {
     estado.metaId = evento.target.value;
     render();
   });
-  document.getElementById("tabela-corpo").addEventListener("click", (evento) => {
-    const linha = evento.target.closest("tr");
-    if (!linha) return;
-    estado.metaId = linha.dataset.id;
-    render();
-  });
-  document.getElementById("btn-exportar").addEventListener("click", exportar);
-  document.getElementById("btn-refresh").addEventListener("click", () => carregar(true));
-  document.getElementById("logo").addEventListener("error", (evento) => {
-    evento.target.hidden = true;
-  });
+  const corpo = document.getElementById("tabela-corpo");
+  if (corpo) {
+    corpo.addEventListener("click", (evento) => {
+      const linha = evento.target.closest("tr");
+      if (!linha) return;
+      estado.metaId = linha.dataset.id;
+      render();
+    });
+  }
+  const exportarBtn = document.getElementById("btn-exportar");
+  if (exportarBtn) exportarBtn.addEventListener("click", exportar);
+  const atualizar = document.getElementById("btn-refresh");
+  if (atualizar) atualizar.addEventListener("click", () => carregar(true));
+  const logo = document.getElementById("logo");
+  if (logo) {
+    logo.addEventListener("error", (evento) => {
+      evento.target.hidden = true;
+    });
+  }
 }
 
 async function carregar(forcar) {
@@ -488,7 +502,16 @@ async function carregar(forcar) {
     }
     document.getElementById("subtitulo").textContent = `${painel.fonte} · vigente ${painel.ano_vigente} / ${painel.quadrimestre_vigente}º quadrimestre`;
     aviso.hidden = true;
-    render();
+    try {
+      render();
+    } catch (erroDesenho) {
+      aviso.hidden = false;
+      aviso.textContent = "Os dados foram lidos, mas a página não conseguiu montar os gráficos. Atualize com Ctrl+F5.";
+    }
+    if (typeof Plotly === "undefined") {
+      aviso.hidden = false;
+      aviso.textContent = "Os dados foram lidos, mas a biblioteca dos gráficos não carregou. Atualize com Ctrl+F5.";
+    }
   } catch (erro) {
     aviso.hidden = false;
     aviso.textContent = "Não foi possível ler dados/painel.json. Rode exportar-site.bat.";
