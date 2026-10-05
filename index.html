@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Metas parciais do PMS</title>
+  <link rel="stylesheet" href="custom.css">
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div class="pagina">
+    <header class="app-header">
+      <div class="app-header-left">
+        <img src="logo-asplan.png" alt="" class="app-logo" id="logo">
+        <div>
+          <h1 class="app-title">Metas parciais do PMS</h1>
+          <p class="app-subtitle" id="subtitulo">Carregando…</p>
+        </div>
+      </div>
+      <button type="button" class="btn-refresh" id="btn-refresh">Atualizar</button>
+    </header>
+    <p class="aviso" id="aviso" hidden></p>
+
+    <section class="secao secao-gerencial">
+      <h2 class="secao-titulo">Visão gerencial</h2>
+      <p class="secao-lead">Posição do conjunto de metas no quadrimestre. Os filtros desta seção não escolhem uma meta.</p>
+      <div class="filter-bar">
+        <div>
+          <div class="filter-label">Secretaria</div>
+          <select id="se" class="filtro"></select>
+        </div>
+        <div>
+          <div class="filter-label">Área</div>
+          <select id="area" class="filtro"></select>
+        </div>
+        <div>
+          <div class="filter-label">Ano</div>
+          <select id="ano" class="filtro"></select>
+        </div>
+        <div>
+          <div class="filter-label">Quadrimestre</div>
+          <select id="quadrimestre" class="filtro"></select>
+        </div>
+        <div>
+          <div class="filter-label">Tipo de monitoramento</div>
+          <select id="tipo" class="filtro"></select>
+        </div>
+      </div>
+      <div class="section-title">Posição no quadrimestre</div>
+      <div class="kpi-row" id="kpis"></div>
+      <div class="chart-row">
+        <div class="chart-card"><div id="grafico-rosca" class="chart-plot"></div></div>
+        <div class="chart-card"><div id="grafico-posicoes" class="chart-plot"></div></div>
+      </div>
+      <div class="section-title">Secretarias no quadrimestre</div>
+      <div class="chart-card"><div id="grafico-secretarias" class="chart-plot"></div></div>
+      <div class="section-title">Metas do quadrimestre</div>
+      <div class="tabela-barra">
+        <button type="button" class="btn-exportar" id="btn-exportar">Exportar xlsx</button>
+      </div>
+      <div class="tabela-wrap">
+        <table class="metas">
+          <thead id="tabela-cabeca"></thead>
+          <tbody id="tabela-corpo"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="secao secao-detalhe">
+      <h2 class="secao-titulo">Detalhe da meta</h2>
+      <p class="secao-lead">Uma meta por vez. Escolha no seletor ou clique numa linha da visão gerencial.</p>
+      <div class="filter-bar">
+        <div style="flex: 1 1 420px">
+          <div class="filter-label">Meta</div>
+          <select id="meta-sel" class="filtro"></select>
+        </div>
+      </div>
+      <div id="resumo-meta"></div>
+      <div class="chart-card" style="margin-top: 0.5rem"><div id="grafico-ano" class="chart-plot"></div></div>
+    </section>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
