@@ -308,15 +308,35 @@ select.filtro {
 }
 
 .kpi-row {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-bottom: 1rem;
+}
+
+.kpi-card {
+  height: auto;
+  min-width: 0;
+}
+
+.kpi-label {
+  line-height: 1.25;
+  min-height: 2.5em;
 }
 
 .chart-row {
   grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  margin-top: 0.5rem;
+  margin-top: 0;
+  clear: both;
 }
 
-.chart-plot {
+.chart-card {
+  height: auto;
+  overflow: hidden;
+}
+
+.chart-plot,
+.chart-plot .plot-container,
+.chart-plot .svg-container {
+  position: relative;
   height: 360px;
 }
 
@@ -386,9 +406,8 @@ table.metas tr.selecionada td {
 }
 
 @media (max-width: 1100px) {
-  .kpi-row,
   .chart-row {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
 }
 
