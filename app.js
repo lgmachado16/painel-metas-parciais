@@ -6,7 +6,7 @@ const estado = {
   area: "",
   ano: 2026,
   quadrimestre: 1,
-  tipo: "",
+  status: "",
   metaId: "",
 };
 
@@ -81,25 +81,29 @@ function preencherSelect(id, opcoes, valor) {
   select.value = valor;
 }
 
-function metasVisiveis() {
+function metasPorOrgao() {
   return painel.metas
     .filter((meta) => {
       if (estado.secretaria && meta.secretaria !== estado.secretaria) return false;
       if (estado.area && meta.area !== estado.area) return false;
-      if (estado.tipo && meta.tipo !== estado.tipo) return false;
       return true;
     })
     .sort((a, b) => naturalCompare(a.id, b.id));
 }
 
-function resultadosFiltrados(ano, quadrimestre) {
-  const ids = new Set(metasVisiveis().map((meta) => meta.id));
+function resultadosDoOrgao(ano, quadrimestre) {
+  const ids = new Set(metasPorOrgao().map((meta) => meta.id));
   return painel.resultados.filter((linha) => {
     if (!ids.has(linha.id)) return false;
     if (ano != null && linha.ano !== Number(ano)) return false;
     if (quadrimestre != null && linha.quadrimestre !== Number(quadrimestre)) return false;
     return true;
   });
+}
+
+function aplicarStatus(linhas) {
+  if (!estado.status) return linhas;
+  return linhas.filter((linha) => linha.faixa === estado.status);
 }
 
 function corFaixa(nome) {
@@ -181,6 +185,60 @@ function graficoSecretarias(linhas) {
   layout.yaxis.range = [0, 100];
   layout.margin = { l: 48, r: 16, t: 36, b: 72 };
   layout.title = { text: "Distribuição por secretaria no quadrimestre", font: { size: 14 } };
+  return { data, layout };
+}
+
+function classeSuperacao(observado, metaAnual, tipo) {
+  if (observado == null || metaAnual == null) return "Sem informação";
+  if (tipo === "ENTREGA_DECRESCENTE" || tipo === "NIVEL_DECRESCENTE") {
+    return observado <= metaAnual ? "Já superada" : "Ainda não";
+  }
+  if (tipo === "ENTREGA_CRESCENTE" || tipo === "NIVEL_CRESCENTE") {
+    return observado >= metaAnual ? "Já superada" : "Ainda não";
+  }
+  return "Sem informação";
+}
+
+function graficoSuperadas(ids) {
+  const ano = painel.ano_vigente;
+  const porMeta = new Map(painel.metas.map((meta) => [meta.id, meta]));
+  const contagem = new Map();
+  ids.forEach((id) => {
+    const meta = porMeta.get(id);
+    if (!meta) return;
+    const leituras = painel.resultados
+      .filter((linha) => linha.id === id && linha.ano === ano && linha.observado != null)
+      .sort((a, b) => b.quadrimestre - a.quadrimestre);
+    const secretaria = meta.secretaria || "Sem secretaria";
+    if (!contagem.has(secretaria)) contagem.set(secretaria, { "Já superada": 0, "Ainda não": 0, "Sem informação": 0 });
+    const situacao = classeSuperacao(
+      leituras.length ? leituras[0].observado : null,
+      meta.metas_anuais[String(ano)],
+      meta.tipo,
+    );
+    contagem.get(secretaria)[situacao] += 1;
+  });
+  const secretarias = [...contagem.keys()].sort();
+  if (!secretarias.length) return figuraVazia("Sem metas neste recorte");
+  const cores = { "Já superada": "#38bdf8", "Ainda não": "#475569", "Sem informação": "#9aa3b2" };
+  const data = ["Já superada", "Ainda não", "Sem informação"].flatMap((situacao) => {
+    const alturas = secretarias.map((secretaria) => contagem.get(secretaria)[situacao]);
+    if (!alturas.some((altura) => altura)) return [];
+    return [{
+      type: "bar",
+      name: situacao,
+      x: secretarias,
+      y: alturas,
+      marker: { color: cores[situacao] },
+      hovertemplate: "%{x}<br>%{fullData.name}: %{y} metas<extra></extra>",
+    }];
+  });
+  if (!data.length) return figuraVazia("Sem metas neste recorte");
+  const layout = layoutBase();
+  layout.barmode = "stack";
+  layout.xaxis.tickangle = -20;
+  layout.margin = { l: 48, r: 16, t: 36, b: 72 };
+  layout.title = { text: `Metas já superadas em ${ano}`, font: { size: 14 } };
   return { data, layout };
 }
 
@@ -329,8 +387,17 @@ function atualizarFiltros() {
     painel.quadrimestres.map((quadrimestre) => ({ value: String(quadrimestre), label: `${quadrimestre}º` })),
     String(estado.quadrimestre),
   );
-  preencherSelect("tipo", [{ value: "", label: "Todos" }, ...painel.tipos.map((tipo) => ({ value: tipo, label: tipo }))], estado.tipo);
-  const visiveis = metasVisiveis();
+  preencherSelect(
+    "status",
+    [{ value: "", label: "Todos" }, ...painel.faixas.map((faixa) => ({
+      value: faixa.nome,
+      label: faixa.nome.charAt(0).toUpperCase() + faixa.nome.slice(1),
+    }))],
+    estado.status,
+  );
+  const recorteQuadrimestre = aplicarStatus(resultadosDoOrgao(estado.ano, estado.quadrimestre));
+  const idsRecorte = new Set(recorteQuadrimestre.map((linha) => linha.id));
+  const visiveis = metasPorOrgao().filter((meta) => idsRecorte.has(meta.id));
   if (!visiveis.some((meta) => meta.id === estado.metaId)) estado.metaId = visiveis.length ? visiveis[0].id : "";
   preencherSelect(
     "meta-sel",
@@ -341,12 +408,14 @@ function atualizarFiltros() {
 
 function render() {
   atualizarFiltros();
-  const recorte = resultadosFiltrados(estado.ano, estado.quadrimestre);
-  const anoTodo = resultadosFiltrados(estado.ano, null);
+  const recorte = aplicarStatus(resultadosDoOrgao(estado.ano, estado.quadrimestre));
+  const ids = new Set(recorte.map((linha) => linha.id));
+  const anoTodo = resultadosDoOrgao(estado.ano, null).filter((linha) => ids.has(linha.id));
   desenharKpis(recorte);
   desenhar("grafico-rosca", graficoRosca(recorte));
   desenhar("grafico-posicoes", graficoPosicoes(anoTodo));
   desenhar("grafico-secretarias", graficoSecretarias(recorte));
+  desenhar("grafico-superadas", graficoSuperadas(ids));
   desenharTabela(linhasTabela(recorte));
   const meta = painel.metas.find((item) => item.id === estado.metaId) || null;
   const doAno = painel.resultados.filter((linha) => linha.id === estado.metaId && linha.ano === Number(estado.ano));
@@ -356,7 +425,7 @@ function render() {
 }
 
 function exportar() {
-  const registros = linhasTabela(resultadosFiltrados(estado.ano, estado.quadrimestre)).map((registro) => {
+  const registros = linhasTabela(aplicarStatus(resultadosDoOrgao(estado.ano, estado.quadrimestre))).map((registro) => {
     const linha = { ...registro };
     delete linha.id;
     return linha;
@@ -384,8 +453,8 @@ function ligarEventos() {
     estado.quadrimestre = Number(evento.target.value);
     render();
   });
-  document.getElementById("tipo").addEventListener("change", (evento) => {
-    estado.tipo = evento.target.value;
+  document.getElementById("status").addEventListener("change", (evento) => {
+    estado.status = evento.target.value;
     render();
   });
   document.getElementById("meta-sel").addEventListener("change", (evento) => {
