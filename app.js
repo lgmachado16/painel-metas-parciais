@@ -556,7 +556,7 @@ function ligarEventos() {
 async function carregar(forcar) {
   const aviso = document.getElementById("aviso");
   try {
-    const endereco = `dados/painel.json?v=20261005i${forcar ? `&t=${Date.now()}` : ""}`;
+    const endereco = `dados/painel.json?v=20261005j${forcar ? `&t=${Date.now()}` : ""}`;
     const resposta = await fetch(endereco);
     if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
     painel = await resposta.json();
